@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Goblin Tide</title>
+<meta name="description" content="You are the horde. Command a tide of goblins against a hero who learns how you fight.">
+<!-- X / Twitter player card: makes the game playable inside the tweet -->
+<meta name="twitter:card" content="player">
+<meta name="twitter:title" content="Goblin Tide: you are the horde">
+<meta name="twitter:description" content="Command a tide of goblins against a hero who learns how you fight. Play it right here in the tweet.">
+<meta name="twitter:image" content="https://clotheshoesandwoes.github.io/goblin-tide/card.png">
+<meta name="twitter:player" content="https://clotheshoesandwoes.github.io/goblin-tide/">
+<meta name="twitter:player:width" content="480">
+<meta name="twitter:player:height" content="480">
+<meta property="og:title" content="Goblin Tide: you are the horde">
+<meta property="og:description" content="Command a tide of goblins against a hero who learns how you fight.">
+<meta property="og:image" content="https://clotheshoesandwoes.github.io/goblin-tide/card.png">
+<meta property="og:url" content="https://clotheshoesandwoes.github.io/goblin-tide/">
+<meta property="og:type" content="website">
+<style>
+  :root { --ink:#f3ecd6; --dim:#b9b39c; --bg:#0d0f0a; --gob:#7bd24a; --red:#ff4a36; --gold:#ffcf4a; }
+  html,body { margin:0; height:100%; background:var(--bg); overflow:hidden; touch-action:none;
+    user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+    font-family: ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink); }
+  canvas { display:block; width:100vw; height:100vh; cursor:crosshair; }
+  #hud { position:fixed; inset:0; pointer-events:none; font-size:clamp(11px,3.3vmin,18px); }
+  #boss { position:absolute; top:1.6vmin; left:50%; transform:translateX(-50%); width:min(68vw,520px); text-align:center; display:none; }
+  #bossName { font-weight:800; letter-spacing:.04em; text-shadow:0 2px 0 #000; font-size:.95em; }
+  #bossBar { margin-top:.35em; height:.7em; background:#2a1512; border:2px solid #000; border-radius:4px; overflow:hidden; }
+  #bossFill { height:100%; width:100%; background:linear-gradient(#ff7a5c,#c8281a); transition:width .08s linear; }
+  #skills { margin-top:.3em; font-size:.72em; color:var(--dim); text-shadow:0 1px 0 #000; }
+  #swarm { position:absolute; left:2vmin; bottom:2vmin; font-weight:800; text-shadow:0 2px 0 #000; display:none; line-height:1.25; }
+  #swarm b { color:var(--gob); font-size:1.6em; }
+  #swarm span { color:var(--dim); font-size:.8em; font-weight:600; }
+  #scatter { position:absolute; right:2.2vmin; bottom:2.2vmin; width:clamp(54px,15vmin,86px); aspect-ratio:1; border-radius:50%;
+    border:3px solid #000; pointer-events:auto; display:none; cursor:pointer; color:#10140b; font-weight:900; font-size:.8em;
+    background:conic-gradient(var(--gob) calc(var(--p,1)*360deg), #33402a 0); box-shadow:0 3px 0 #000; padding:0; font-family:inherit; }
+  #scatter.ready { animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform:scale(1.07); } }
+  #mute { position:absolute; right:2vmin; top:1.6vmin; pointer-events:auto; background:none; border:none; color:var(--dim); font-size:1.2em; cursor:pointer; padding:.2em; }
+  #toast { position:absolute; left:50%; top:30%; transform:translate(-50%,-50%); text-align:center; width:90vw;
+    font-weight:900; text-shadow:0 3px 0 #000, 0 0 18px #000; opacity:0; transition:opacity .25s; }
+  #toast .big { font-size:2em; letter-spacing:.03em; }
+  #toast .small { font-size:.85em; color:var(--gold); margin-top:.3em; font-weight:700; }
+  .overlay { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:2.2vmin;
+    background:radial-gradient(ellipse at center, rgba(13,15,10,.55), rgba(13,15,10,.92)); text-align:center; padding:4vmin; box-sizing:border-box;
+    font-size:clamp(11px,3.3vmin,18px); }
+  .overlay.show { display:flex; }
+  h1 { margin:0; font-size:3.1em; line-height:.95; letter-spacing:.02em; color:var(--gob); text-shadow:0 4px 0 #000, 0 0 30px rgba(123,210,74,.35); font-weight:900; }
+  h2 { margin:0; font-size:2em; font-weight:900; text-shadow:0 3px 0 #000; }
+  .sub { color:var(--ink); font-weight:700; max-width:30em; }
+  .hint { color:var(--dim); font-size:.85em; max-width:30em; line-height:1.45; }
+  .btn { pointer-events:auto; font:inherit; font-weight:900; font-size:1.15em; padding:.55em 1.6em; border-radius:10px; border:3px solid #000;
+    background:var(--gob); color:#10140b; cursor:pointer; box-shadow:0 4px 0 #000; }
+  .btn:active { transform:translateY(3px); box-shadow:0 1px 0 #000; }
+  .btn.alt { background:#e9e2c8; }
+  .row { display:flex; gap:1.5vmin; flex-wrap:wrap; justify-content:center; }
+  .cards { display:flex; gap:1.6vmin; flex-wrap:wrap; justify-content:center; width:100%; }
+  .card { pointer-events:auto; font:inherit; flex:1 1 0; min-width:7.5em; max-width:12em; padding:1em .7em; border-radius:12px; border:3px solid #000;
+    background:#1d2416; color:var(--ink); cursor:pointer; box-shadow:0 4px 0 #000; text-align:center; }
+  .card:hover { background:#2a3720; transform:translateY(-2px); }
+  .card .ic { font-size:1.9em; }
+  .card .nm { font-weight:900; margin:.25em 0; color:var(--gob); }
+  .card .ds { font-size:.8em; color:var(--dim); line-height:1.35; }
+  .stat { font-size:1.2em; font-weight:800; }
+  .stat b { color:var(--gold); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="hud">
+  <div id="boss"><div id="bossName">Sir Aldric</div><div id="bossBar"><div id="bossFill"></div></div><div id="skills"></div></div>
+  <div id="swarm"><b id="gcount">0</b> goblins<br><span id="eggs">eggs 0</span></div>
+  <button id="scatter" title="Scatter (click / space)">SCATTER</button>
+  <button id="mute" title="Sound">🔊</button>
+  <div id="toast"><div class="big"></div><div class="small"></div></div>
+</div>
+
+<div class="overlay show" id="title">
+  <h1>GOBLIN<br>TIDE</h1>
+  <div class="sub">You are the horde. The hero learns how you fight.</div>
+  <div class="hint">Point or drag to steer the swarm. Swarm the hero to bite.<br>
+    <b style="color:var(--red)">Red zones</b> are incoming attacks: <b>click / tap SCATTER</b> to dodge.</div>
+  <button class="btn" id="play">PLAY</button>
+  <div class="hint" id="best"></div>
+</div>
+
+<div class="overlay" id="upgrade">
+  <h2 style="color:var(--gold)">HERO SLAIN</h2>
+  <div class="sub">Choose a mutation for your brood</div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="overlay" id="over">
+  <h2 style="color:var(--red)">THE TIDE RECEDES</h2>
+  <div class="stat">Heroes slain: <b id="oSlain">0</b></div>
+  <div class="hint" id="oBest"></div>
+  <div class="row"><button class="btn" id="again">AGAIN</button><button class="btn alt" id="share">SHARE</button></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const $ = (id) => document.getElementById(id);
+const DEMO = new URLSearchParams(location.search).has('demo');
+const rand = Math.random;
+const TAU = Math.PI * 2;
+
+// ---------------------------------------------------------------- constants
+const AR = 15;            // arena radius
+const MAXG = 480;         // hard goblin limit
+const SEP = 0.5;          // goblin personal space
+const CELL = 1.0;
+const GOFF = AR + 2;
+const GW = Math.ceil((GOFF * 2) / CELL) + 1;
+const NEST = { x: 0, z: AR - 1.6 };
+
+const ATK = {
+  swing: { name: 'Cleave',      tele: 0.72, r: 4.2, a: 1.1 },
+  spin:  { name: 'Whirlwind',   tele: 0.85, r: 4.7 },
+  slam:  { name: 'Ground Slam', tele: 1.0,  r: 3.7, range: 11 },
+  lance: { name: 'Light Lance', tele: 0.9,  L: 18, W: 2.3 },
+};
+const LEARN_WHY = {
+  slam:  'your swarm moves in one tight blob',
+  spin:  'you keep surrounding it',
+  lance: 'you hang back at range',
+};
+const HERO_NAMES = ['Sir Aldric', 'Dame Wren', 'Sir Corvin', 'Lady Maelis', 'Sir Brannoc', 'Dame Isolde',
+  'Sir Tavish', 'The Gilded Knight', 'Saint Oriel', 'The Last Paladin'];
+const CAPES = [0x8b1e2d, 0x1e4f8b, 0x6a2a8b, 0x1f7a5a, 0xb0661a, 0x222222, 0xc9a227];
+
+// ---------------------------------------------------------------- renderer
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: DEMO });
+let quality = Math.min(window.devicePixelRatio || 1, 1.25);
+renderer.setPixelRatio(quality);
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d0f0a);
+scene.fog = new THREE.Fog(0x0d0f0a, 34, 80);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 200);
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a2414, 1.7));
+const sun = new THREE.DirectionalLight(0xfff0d0, 2.1);
+sun.position.set(-8, 20, 10);
+scene.add(sun);
+
+const camBase = new THREE.Vector3();
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const fit = AR + 2.2;
+  const d = Math.max((fit / t) * 0.95, fit / (t * camera.aspect));
+  camBase.set(0, 1, 0.62).normalize().multiplyScalar(d);
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------------- arena
+{
+  const outer = new THREE.Mesh(new THREE.CircleGeometry(80, 48).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x171b11 }));
+  outer.position.y = -0.02;
+  scene.add(outer);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(AR + 0.8, 64).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3c4a2b }));
+  scene.add(ground);
+  // patches of lighter grass
+  const patchGeo = new THREE.CircleGeometry(1, 9).rotateX(-Math.PI / 2);
+  const patches = new THREE.InstancedMesh(patchGeo, new THREE.MeshLambertMaterial({ color: 0x46572f }), 40);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < 40; i++) {
+    const a = rand() * TAU, r = Math.sqrt(rand()) * (AR - 1.5), s = 0.8 + rand() * 2.2;
+    m.makeScale(s, 1, s * (0.6 + rand() * 0.6)); m.setPosition(Math.cos(a) * r, 0.005, Math.sin(a) * r);
+    patches.setMatrixAt(i, m);
+  }
+  scene.add(patches);
+  // rocky rim
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x5b5a4e }), 70);
+  const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), p = new THREE.Vector3();
+  for (let i = 0; i < 70; i++) {
+    const a = (i / 70) * TAU + rand() * 0.05, r = AR + 1.2 + rand() * 0.9, s = 0.7 + rand() * 0.9;
+    e.set(rand() * 3, rand() * 3, rand() * 3); q.setFromEuler(e);
+    m.compose(p.set(Math.cos(a) * r, s * 0.3, Math.sin(a) * r), q, v.set(s, s * 0.8, s));
+    rocks.setMatrixAt(i, m);
+  }
+  scene.add(rocks);
+  // goblin nest
+  const nest = new THREE.Mesh(new THREE.SphereGeometry(1.5, 10, 6, 0, TAU, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5a3d22 }));
+  nest.scale.y = 0.55; nest.position.set(NEST.x, 0, NEST.z);
+  scene.add(nest);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(0.6, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x120a04 }));
+  hole.position.set(NEST.x, 0.84, NEST.z);
+  scene.add(hole);
+}
+
+// rally marker
+const rally = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.62, 24).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0x9cff5c, transparent: true, opacity: 0.55, depthWrite: false }));
+rally.position.y = 0.04;
+scene.add(rally);
+const target = { x: 0, z: 6 };
+
+// ---------------------------------------------------------------- goblins (one instanced mesh)
+const goblinGeo = mergeGeometries([
+  new THREE.BoxGeometry(0.42, 0.42, 0.34).translate(0, 0.24, 0),
+  new THREE.BoxGeometry(0.38, 0.32, 0.34).translate(0, 0.6, 0.04),
+  new THREE.ConeGeometry(0.08, 0.34, 4).rotateZ(Math.PI / 2).translate(-0.33, 0.66, 0),
+  new THREE.ConeGeometry(0.08, 0.34, 4).rotateZ(-Math.PI / 2).translate(0.33, 0.66, 0),
+]);
+const gMesh = new THREE.InstancedMesh(goblinGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), MAXG);
+gMesh.frustumCulled = false;
+gMesh.setColorAt(0, new THREE.Color());
+scene.add(gMesh);
+
+const gx = new Float32Array(MAXG), gz = new Float32Array(MAXG), gvx = new Float32Array(MAXG), gvz = new Float32Array(MAXG);
+const ghp = new Int8Array(MAXG), gtype = new Uint8Array(MAXG), galive = new Uint8Array(MAXG);
+const gscat = new Float32Array(MAXG), gjit = new Float32Array(MAXG), gbite = new Uint8Array(MAXG), gface = new Float32Array(MAXG);
+const head = new Int32Array(GW * GW), nextIdx = new Int32Array(MAXG);
+const TYPE_COLOR = [new THREE.Color(0x7bd24a), new THREE.Color(0xff7a2a), new THREE.Color(0x4f8f2c)];
+const TYPE_SCALE = [1, 1, 1.6];
+let aliveCount = 0;
+
+function spawnGoblin(x, z, type = -1) {
+  if (aliveCount >= Math.min(S.cap, MAXG)) return -1;
+  for (let i = 0; i < MAXG; i++) {
+    if (galive[i]) continue;
+    if (type < 0) { const r = rand(); type = r < S.brutePct ? 2 : r < S.brutePct + S.bomberPct ? 1 : 0; }
+    galive[i] = 1; gtype[i] = type; ghp[i] = type === 2 ? 3 : 1;
+    gx[i] = x + (rand() - 0.5) * 0.6; gz[i] = z + (rand() - 0.5) * 0.6;
+    gvx[i] = (rand() - 0.5) * 4; gvz[i] = (rand() - 0.5) * 4;
+    gscat[i] = 0; gjit[i] = rand(); gbite[i] = 0; gface[i] = rand() * TAU;
+    aliveCount++;
+    return i;
+  }
+  return -1;
+}
+
+function killGoblin(i) {
+  if (!galive[i]) return;
+  galive[i] = 0; aliveCount--;
+  S.lost++;
+  emit(gx[i], 0.4, gz[i], gtype[i] === 1 ? 0xff7a2a : 0x5fbf36, 5, 4, 5);
+  sfx('die');
+  if (gtype[i] === 1) {
+    emit(gx[i], 0.5, gz[i], 0xffb02a, 14, 8, 7);
+    sfx('boom');
+    S.shake = Math.max(S.shake, 0.18);
+    if (H.state !== 'dead' && H.state !== 'none') {
+      const d = Math.hypot(gx[i] - H.x, gz[i] - H.z);
+      if (d < 3.3) damageHero(45 * (1 + S.lvl * 0.15));
+    }
+  }
+}
+
+// ---------------------------------------------------------------- particles
+const PMAX = 420;
+const pMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), new THREE.MeshBasicMaterial({ color: 0xffffff }), PMAX);
+pMesh.frustumCulled = false;
+pMesh.setColorAt(0, new THREE.Color());
+scene.add(pMesh);
+const px = new Float32Array(PMAX), py = new Float32Array(PMAX), pz = new Float32Array(PMAX);
+const pvx = new Float32Array(PMAX), pvy = new Float32Array(PMAX), pvz = new Float32Array(PMAX), plife = new Float32Array(PMAX);
+const pcol = Array.from({ length: PMAX }, () => new THREE.Color());
+let pNext = 0;
+function emit(x, y, z, color, n, spd, up) {
+  for (let k = 0; k < n; k++) {
+    const i = pNext; pNext = (pNext + 1) % PMAX;
+    const a = rand() * TAU, s = spd * (0.3 + rand() * 0.7);
+    px[i] = x; py[i] = y; pz[i] = z;
+    pvx[i] = Math.cos(a) * s; pvz[i] = Math.sin(a) * s; pvy[i] = up * (0.4 + rand() * 0.8);
+    plife[i] = 0.5 + rand() * 0.6;
+    pcol[i].setHex(color);
+  }
+}
+
+// ---------------------------------------------------------------- hero
+const H = { x: 0, z: -7, r: 0.9, face: 0, hp: 1, maxHp: 1, lvl: 1, state: 'none', atk: null, t: 0, cd: 1.5,
+  tx: 0, tz: 0, dx: 0, dz: 1, sx: 0, sz: 0, flash: 0, known: [], teleMul: 1, cdBase: 1.5, speed: 2.6, name: '' };
+const heroG = new THREE.Group();
+const heroMats = [];
+function hm(c) { const m = new THREE.MeshLambertMaterial({ color: c }); heroMats.push(m); return m; }
+const capeMat = hm(0x8b1e2d), plumeMat = hm(0xd23a2a);
+{
+  const add = (geo, mat, x, y, z) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); heroG.add(mm); return mm; };
+  add(new THREE.BoxGeometry(0.9, 0.6, 0.6), hm(0x3a3f55), 0, 0.3, 0);
+  add(new THREE.BoxGeometry(1.15, 1.2, 0.75), hm(0xa9bccf), 0, 1.15, 0);
+  add(new THREE.BoxGeometry(0.64, 0.64, 0.64), hm(0xd3dee9), 0, 2.1, 0);
+  add(new THREE.BoxGeometry(0.5, 0.09, 0.05), hm(0x111111), 0, 2.12, 0.33);
+  add(new THREE.BoxGeometry(0.12, 0.38, 0.62), plumeMat, 0, 2.58, -0.05);
+  add(new THREE.BoxGeometry(1.0, 1.4, 0.08), capeMat, 0, 1.05, -0.43);
+  add(new THREE.BoxGeometry(0.12, 0.95, 0.75), hm(0x2d4f8a), -0.66, 1.1, 0.1);
+}
+const swordPivot = new THREE.Group();
+swordPivot.position.set(0.72, 1.25, 0);
+{
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 2.1).translate(0, 0, 1.15), hm(0xf2f6ff));
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.1), hm(0xc9a227));
+  swordPivot.add(blade, guard);
+}
+heroG.add(swordPivot);
+const heroShadow = new THREE.Mesh(new THREE.CircleGeometry(1.15, 20).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
+heroShadow.position.y = 0.02;
+scene.add(heroG, heroShadow);
+heroG.visible = heroShadow.visible = false;
+
+// telegraph + flash geometries
+const GEO = {
+  swing: new THREE.CircleGeometry(ATK.swing.r, 22, -ATK.swing.a, ATK.swing.a * 2).rotateX(-Math.PI / 2),
+  spin:  new THREE.CircleGeometry(ATK.spin.r, 36).rotateX(-Math.PI / 2),
+  slam:  new THREE.CircleGeometry(ATK.slam.r, 36).rotateX(-Math.PI / 2),
+  lance: new THREE.PlaneGeometry(ATK.lance.L, ATK.lance.W).rotateX(-Math.PI / 2).translate(ATK.lance.L / 2, 0, 0),
+};
+let tele = null;
+function makeTele(kind) {
+  const g = new THREE.Group();
+  const outline = new THREE.Mesh(GEO[kind], new THREE.MeshBasicMaterial({ color: 0xff3322, transparent: true, opacity: 0.2, depthWrite: false }));
+  const fill = new THREE.Mesh(GEO[kind], new THREE.MeshBasicMaterial({ color: 0xff3322, transparent: true, opacity: 0.45, depthWrite: false }));
+  fill.position.y = 0.01;
+  g.add(outline, fill);
+  g.position.y = 0.03;
+  scene.add(g);
+  return { g, fill, kind };
+}
+function disposeTele() {
+  if (!tele) return;
+  scene.remove(tele.g);
+  tele.g.children.forEach((c) => c.material.dispose());
+  tele = null;
+}
+const flashes = [];
+function flashShape(kind, x, z, rotY, color = 0xfff4d0) {
+  const mesh = new THREE.Mesh(GEO[kind], new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false }));
+  mesh.position.set(x, 0.06, z); mesh.rotation.y = rotY;
+  scene.add(mesh);
+  flashes.push({ mesh, t: 0, dur: 0.22 });
+}
+const rotFor = (dx, dz) => Math.atan2(-dz, dx); // points shape's +x along (dx,dz)
+
+function spawnHero(lvl) {
+  H.lvl = lvl;
+  H.maxHp = H.hp = Math.round(950 * Math.pow(1.45, lvl - 1));
+  H.teleMul = Math.max(0.5, 1 - 0.07 * (lvl - 1));
+  H.cdBase = Math.max(0.65, 1.45 - 0.1 * (lvl - 1));
+  H.speed = 2.4 + 0.18 * lvl;
+  H.r = 1.15 * Math.min(1.3, 1 + 0.05 * (lvl - 1));
+  H.x = 0; H.z = -7; H.state = 'move'; H.t = 0; H.cd = 1.6; H.flash = 0; H.atk = null;
+  H.name = HERO_NAMES[(lvl - 1) % HERO_NAMES.length] + (lvl > HERO_NAMES.length ? ' ' + 'I'.repeat(Math.floor((lvl - 1) / HERO_NAMES.length) + 1) : '');
+  heroG.visible = heroShadow.visible = true;
+  heroG.rotation.set(0, 0, 0); heroG.position.y = 0;
+  heroG.scale.setScalar(H.r / 0.85);
+  capeMat.color.setHex(CAPES[(lvl - 1) % CAPES.length]);
+  plumeMat.color.setHSL(((lvl * 0.17) % 1), 0.7, 0.5);
+
+  // --- adaptation: learn a counter to how you played last fight
+  let msg = '';
+  if (lvl === 1) { H.known = ['swing']; msg = 'Knows: Cleave'; }
+  else {
+    const options = ['slam', 'spin', 'lance'].filter((k) => !H.known.includes(k));
+    if (options.length) {
+      options.sort((a, b) => S.obs[b] - S.obs[a] + (rand() - 0.5) * 0.01);
+      const pick = options[0];
+      H.known.push(pick);
+      msg = `Studied you: ${LEARN_WHY[pick]}. Learned ${ATK[pick].name.toUpperCase()}`;
+    } else {
+      msg = 'A veteran: faster attacks';
+    }
+  }
+  S.obs = { slam: 0, spin: 0, lance: 0 };
+  $('bossName').textContent = `${H.name}  ·  Hero ${lvl}`;
+  $('skills').textContent = H.known.map((k) => ATK[k].name).join(' · ');
+  toast(H.name.toUpperCase(), msg, 3.2);
+  sfx('horn');
+}
+
+function damageHero(d) {
+  if (H.state === 'dead' || H.state === 'none') return;
+  H.hp -= d;
+  S.dmg += d;
+  if (S.feast > 0) {
+    S.feastAcc += d;
+    const need = 110 / S.feast;
+    while (S.feastAcc >= need) {
+      S.feastAcc -= need;
+      const a = rand() * TAU;
+      spawnGoblin(H.x + Math.cos(a) * (H.r + 0.6), H.z + Math.sin(a) * (H.r + 0.6));
+    }
+  }
+  H.flash = Math.min(1, H.flash + d / 60);
+  if (H.hp <= 0) heroDie();
+}
+
+function heroDie() {
+  H.hp = 0; H.state = 'dead'; H.t = 0;
+  disposeTele();
+  S.slain++;
+  emit(H.x, 1.5, H.z, 0xffcf4a, 40, 9, 10);
+  emit(H.x, 1.0, H.z, 0xd3dee9, 20, 6, 8);
+  S.shake = 0.6;
+  sfx('win');
+  toast('HERO SLAIN', `${S.slain} down`, 1.6);
+}
+
+function chooseAttack() {
+  const k = H.known;
+  const dC = Math.hypot(S.cx - H.x, S.cz - H.z);
+  if (aliveCount === 0) return null;
+  if (k.includes('spin') && S.biting >= 10) return 'spin';
+  if (k.includes('slam') && dC > 3 && dC < ATK.slam.range && S.blobFrac > 0.35 && rand() < 0.7) return 'slam';
+  if (k.includes('lance') && dC > 6.5 && rand() < 0.8) return 'lance';
+  if (S.nearN >= 3) return 'swing';
+  if (k.includes('slam') && dC < ATK.slam.range && rand() < 0.5) return 'slam';
+  return null;
+}
+
+function startAttack(kind) {
+  H.atk = kind; H.state = 'tele'; H.t = 0;
+  let dx, dz;
+  if (kind === 'swing') { dx = S.nearX - H.x; dz = S.nearZ - H.z; }
+  else { dx = S.cx - H.x; dz = S.cz - H.z; }
+  const d = Math.hypot(dx, dz) || 1;
+  H.dx = dx / d; H.dz = dz / d;
+  tele = makeTele(kind);
+  if (kind === 'slam') {
+    // aim where the swarm is heading
+    let tx = S.cx + S.cvx * 0.35, tz = S.cz + S.cvz * 0.35;
+    const td = Math.hypot(tx - H.x, tz - H.z);
+    if (td > ATK.slam.range) { tx = H.x + (tx - H.x) / td * ATK.slam.range; tz = H.z + (tz - H.z) / td * ATK.slam.range; }
+    const tr = Math.hypot(tx, tz);
+    if (tr > AR - 1) { tx *= (AR - 1) / tr; tz *= (AR - 1) / tr; }
+    H.tx = tx; H.tz = tz; H.sx = H.x; H.sz = H.z;
+    tele.g.position.set(tx, 0.03, tz);
+  } else {
+    tele.g.position.set(H.x, 0.03, H.z);
+    tele.g.rotation.y = rotFor(H.dx, H.dz);
+  }
+  sfx('tele');
+}
+
+function inAttack(kind, x, z) {
+  if (kind === 'slam') return Math.hypot(x - H.tx, z - H.tz) < ATK.slam.r + 0.15;
+  const dx = x - H.x, dz = z - H.z, d = Math.hypot(dx, dz);
+  if (kind === 'spin') return d < ATK.spin.r + 0.15;
+  if (kind === 'swing') {
+    if (d > ATK.swing.r + 0.15) return false;
+    if (d < H.r + 0.6) return true;
+    return (dx * H.dx + dz * H.dz) / d > Math.cos(ATK.swing.a);
+  }
+  if (kind === 'lance') {
+    const along = dx * H.dx + dz * H.dz, perp = Math.abs(dx * H.dz - dz * H.dx);
+    return along > -0.5 && along < ATK.lance.L && perp < ATK.lance.W / 2 + 0.15;
+  }
+  return false;
+}
+
+function strike() {
+  const kind = H.atk;
+  if (kind === 'slam') { H.x = H.tx; H.z = H.tz; }
+  for (let i = 0; i < MAXG; i++) {
+    if (!galive[i] || !inAttack(kind, gx[i], gz[i])) continue;
+    if (gscat[i] > 0 && S.nimble) continue;
+    if (--ghp[i] <= 0) killGoblin(i);
+    else { gvx[i] += (gx[i] - H.x) * 3; gvz[i] += (gz[i] - H.z) * 3; }
+  }
+  const rot = rotFor(H.dx, H.dz);
+  if (kind === 'slam') { flashShape('slam', H.x, H.z, 0); S.shake = 0.55; emit(H.x, 0.2, H.z, 0x9a8a6a, 26, 9, 4); sfx('slam'); }
+  if (kind === 'spin') { flashShape('spin', H.x, H.z, 0); S.shake = 0.25; sfx('swing'); }
+  if (kind === 'swing') { flashShape('swing', H.x, H.z, rot); S.shake = 0.15; sfx('swing'); }
+  if (kind === 'lance') { flashShape('lance', H.x, H.z, rot, 0xfffbe0); S.shake = 0.3; sfx('lance'); }
+  disposeTele();
+  H.state = 'recover'; H.t = 0;
+}
+
+function updateHero(dt) {
+  if (H.state === 'none') return;
+  if (H.state === 'dead') {
+    H.t += dt;
+    heroG.rotation.x = Math.max(-Math.PI / 2, -H.t * 4);
+    heroG.position.y = Math.max(-1.5, -Math.max(0, H.t - 0.9) * 2);
+    if (H.t > 1.7 && S.mode === 'fight') openUpgrade();
+    return;
+  }
+  const dxC = S.cx - H.x, dzC = S.cz - H.z, dC = Math.hypot(dxC, dzC) || 1;
+  if (H.state === 'move') {
+    // walk toward the swarm, keep a little room
+    if (aliveCount > 0 && dC > 2.4) {
+      const sp = H.speed * (S.biting > 6 ? 0.55 : 1);
+      H.x += (dxC / dC) * sp * dt; H.z += (dzC / dC) * sp * dt;
+    }
+    if (aliveCount > 0) H.face = lerpAngle(H.face, Math.atan2(dxC, dzC), Math.min(1, dt * 6));
+    H.cd -= dt;
+    if (H.cd <= 0) {
+      const kind = chooseAttack();
+      if (kind) startAttack(kind); else H.cd = 0.2;
+    }
+    swordPivot.rotation.set(0, 0, 0);
+  } else if (H.state === 'tele') {
+    H.t += dt;
+    const dur = ATK[H.atk].tele * H.teleMul;
+    const p = Math.min(1, H.t / dur);
+    if (tele) {
+      if (H.atk === 'lance') tele.fill.scale.set(p, 1, 1); else tele.fill.scale.set(p, 1, p);
+      tele.fill.material.opacity = 0.35 + 0.3 * p;
+    }
+    if (H.atk !== 'slam') H.face = lerpAngle(H.face, Math.atan2(H.dx, H.dz), Math.min(1, dt * 10));
+    // wind-up poses
+    if (H.atk === 'swing') swordPivot.rotation.set(0, 1.3 * p, 0);
+    if (H.atk === 'spin') heroG.rotation.y = H.face - p * 0.8;
+    if (H.atk === 'lance') swordPivot.rotation.set(0, 0, 0), swordPivot.position.z = -0.4 * p;
+    if (H.atk === 'slam') { swordPivot.rotation.set(-1.4 * p, 0, 0); heroG.position.y = -0.15 * p; }
+    if (p >= 1) {
+      if (H.atk === 'slam') { H.state = 'leap'; H.t = 0; }
+      else strike();
+    }
+  } else if (H.state === 'leap') {
+    H.t += dt;
+    const p = Math.min(1, H.t / 0.24);
+    H.x = H.sx + (H.tx - H.sx) * p; H.z = H.sz + (H.tz - H.sz) * p;
+    heroG.position.y = Math.sin(p * Math.PI) * 3;
+    if (p >= 1) { heroG.position.y = 0; strike(); }
+  } else if (H.state === 'recover') {
+    H.t += dt;
+    const p = Math.min(1, H.t / 0.35);
+    if (H.atk === 'swing') swordPivot.rotation.set(0, 1.3 - 2.8 * Math.min(1, p * 3), 0);
+    if (H.atk === 'spin') heroG.rotation.y = H.face + TAU * Math.min(1, p * 2);
+    if (H.atk === 'lance') swordPivot.position.z = 0.6 * (1 - p);
+    if (H.atk === 'slam') swordPivot.rotation.set(-1.4 * (1 - p), 0, 0);
+    if (p >= 1) { H.state = 'move'; H.cd = H.cdBase * (0.8 + rand() * 0.4); swordPivot.position.z = 0; }
+  }
+  // stay in arena
+  const r = Math.hypot(H.x, H.z);
+  if (r > AR - 1) { H.x *= (AR - 1) / r; H.z *= (AR - 1) / r; }
+}
+
+function lerpAngle(a, b, t) {
+  let d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI;
+  return a + d * t;
+}
+
+// ---------------------------------------------------------------- swarm simulation
+function updateSwarm(dt, time) {
+  head.fill(-1);
+  for (let i = 0; i < MAXG; i++) {
+    if (!galive[i]) continue;
+    const cx = Math.min(GW - 1, Math.max(0, ((gx[i] + GOFF) / CELL) | 0));
+    const cz = Math.min(GW - 1, Math.max(0, ((gz[i] + GOFF) / CELL) | 0));
+    const c = cz * GW + cx;
+    nextIdx[i] = head[c]; head[c] = i;
+  }
+  const heroOn = H.state !== 'dead' && H.state !== 'none';
+  const pcx = S.cx, pcz = S.cz;
+  let sx = 0, sz = 0, svx = 0, svz = 0, n = 0, biting = 0, biteDmg = 0, nearX = 0, nearZ = 0, nearN = 0, blob = 0, far = 0;
+  let sectors = 0;
+  const tx = target.x, tz = target.z, k = Math.min(1, dt * 9);
+  for (let i = 0; i < MAXG; i++) {
+    if (!galive[i]) continue;
+    let x = gx[i], z = gz[i];
+    const sc = TYPE_SCALE[gtype[i]];
+    let dvx, dvz;
+    if (gscat[i] > 0) {
+      gscat[i] -= dt;
+      dvx = gvx[i] * 0.97; dvz = gvz[i] * 0.97;
+    } else {
+      const dx = tx - x, dz = tz - z, d = Math.hypot(dx, dz) + 1e-5;
+      const sp = S.speed * (gtype[i] === 2 ? 0.85 : 1) * (0.88 + gjit[i] * 0.24) * Math.min(1, d / 1.4);
+      dvx = (dx / d) * sp; dvz = (dz / d) * sp;
+    }
+    // separation from neighbours
+    const ccx = Math.min(GW - 1, Math.max(0, ((x + GOFF) / CELL) | 0));
+    const ccz = Math.min(GW - 1, Math.max(0, ((z + GOFF) / CELL) | 0));
+    let ax = 0, az = 0;
+    const sepR = SEP * (sc > 1 ? 1.3 : 1);
+    for (let oz = -1; oz <= 1; oz++) {
+      const rz = ccz + oz; if (rz < 0 || rz >= GW) continue;
+      for (let ox = -1; ox <= 1; ox++) {
+        const rx = ccx + ox; if (rx < 0 || rx >= GW) continue;
+        for (let j = head[rz * GW + rx]; j !== -1; j = nextIdx[j]) {
+          if (j === i) continue;
+          const ddx = x - gx[j], ddz = z - gz[j], d2 = ddx * ddx + ddz * ddz;
+          if (d2 < sepR * sepR && d2 > 1e-6) {
+            const d = Math.sqrt(d2), w = (sepR - d) / sepR;
+            ax += (ddx / d) * w; az += (ddz / d) * w;
+          }
+        }
+      }
+    }
+    dvx += ax * 9; dvz += az * 9;
+    gvx[i] += (dvx - gvx[i]) * k; gvz[i] += (dvz - gvz[i]) * k;
+    x += gvx[i] * dt; z += gvz[i] * dt;
+
+    // hero body: goblins pile around it and bite
+    gbite[i] = 0;
+    if (heroOn && H.state !== 'leap') {
+      const hx = x - H.x, hz = z - H.z, hd = Math.hypot(hx, hz) + 1e-5;
+      const minD = H.r + 0.22 * sc;
+      if (hd < minD) { x = H.x + (hx / hd) * minD; z = H.z + (hz / hd) * minD; }
+      if (hd < minD + 0.18) {
+        gbite[i] = 1; biting++;
+        biteDmg += gtype[i] === 2 ? 2 : 1;
+        sectors |= 1 << (((Math.atan2(hz, hx) + Math.PI) / TAU * 8) | 0) % 8;
+      }
+      if (hd < 5.5) { nearX += x; nearZ += z; nearN++; }
+    }
+    const r = Math.hypot(x, z);
+    if (r > AR) { x *= AR / r; z *= AR / r; }
+    gx[i] = x; gz[i] = z;
+    if (Math.abs(gvx[i]) + Math.abs(gvz[i]) > 0.6) gface[i] = Math.atan2(gvx[i], gvz[i]);
+    sx += x; sz += z; svx += gvx[i]; svz += gvz[i]; n++;
+    if (Math.hypot(x - pcx, z - pcz) < ATK.slam.r) blob++;
+  }
+  if (n) { S.cx = sx / n; S.cz = sz / n; S.cvx = svx / n; S.cvz = svz / n; }
+  S.biting = biting;
+  S.nearN = nearN;
+  if (nearN) { S.nearX = nearX / nearN; S.nearZ = nearZ / nearN; } else { S.nearX = S.cx; S.nearZ = S.cz; }
+  S.blobFrac = n ? blob / n : 0;
+
+  if (heroOn && biteDmg > 0) {
+    const mult = 1 + S.frenzy * biting;
+    damageHero(biteDmg * S.bite * mult * dt);
+    S.biteSfxT -= dt;
+    if (S.biteSfxT <= 0) { sfx('bite'); S.biteSfxT = 0.08; }
+    if (rand() < dt * Math.min(30, biting)) emit(H.x + (rand() - 0.5) * H.r * 2, 1 + rand(), H.z + (rand() - 0.5) * H.r * 2, 0xffffff, 1, 3, 4);
+  }
+
+  // what is the player doing? (the next hero learns from this)
+  if (S.mode === 'fight' && heroOn && n >= 12) {
+    let sec = 0; for (let b = 0; b < 8; b++) if (sectors & (1 << b)) sec++;
+    if (S.blobFrac > 0.55) S.obs.slam += dt;
+    if (sec >= 6) S.obs.spin += dt * 1.6;
+    if (Math.hypot(S.cx - H.x, S.cz - H.z) > 7.5) S.obs.lance += dt * 1.2;
+  }
+
+  // draw goblins
+  let c = 0;
+  for (let i = 0; i < MAXG; i++) {
+    if (!galive[i]) continue;
+    const sc = TYPE_SCALE[gtype[i]];
+    const hop = gbite[i] ? Math.abs(Math.sin(time * 20 + i)) * 0.28 : Math.abs(Math.sin(time * 13 + i * 1.7)) * 0.08;
+    const face = gbite[i] ? Math.atan2(H.x - gx[i], H.z - gz[i]) : gface[i];
+    _m.makeRotationY(face);
+    _m.scale(_v.set(sc * 1.25, sc * 1.25, sc * 1.25));
+    _m.setPosition(gx[i], hop, gz[i]);
+    gMesh.setMatrixAt(c, _m);
+    _c.copy(TYPE_COLOR[gtype[i]]);
+    if (gscat[i] > 0) _c.lerp(_white, 0.35);
+    gMesh.setColorAt(c, _c);
+    c++;
+  }
+  gMesh.count = c;
+  gMesh.instanceMatrix.needsUpdate = true;
+  if (gMesh.instanceColor) gMesh.instanceColor.needsUpdate = true;
+}
+const _m = new THREE.Matrix4(), _v = new THREE.Vector3(), _c = new THREE.Color(), _white = new THREE.Color(0xffffff);
+
+function scatter() {
+  if (S.mode !== 'fight' || S.scatterT > 0) return;
+  S.scatterT = S.scatterCd;
+  for (let i = 0; i < MAXG; i++) {
+    if (!galive[i]) continue;
+    let dx = gx[i] - S.cx, dz = gz[i] - S.cz;
+    const a = rand() * TAU;
+    dx += Math.cos(a) * 0.8; dz += Math.sin(a) * 0.8;
+    const d = Math.hypot(dx, dz) || 1, s = 10 + rand() * 5;
+    gvx[i] = (dx / d) * s; gvz[i] = (dz / d) * s;
+    gscat[i] = S.nimble ? 0.4 : 0.32;
+  }
+  flashShape('spin', S.cx, S.cz, 0, 0x9cff5c);
+  sfx('scatter');
+}
+
+function updateParticles(dt) {
+  let c = 0;
+  for (let i = 0; i < PMAX; i++) {
+    if (plife[i] <= 0) continue;
+    plife[i] -= dt;
+    pvy[i] -= 22 * dt;
+    px[i] += pvx[i] * dt; py[i] += pvy[i] * dt; pz[i] += pvz[i] * dt;
+    if (py[i] < 0.06) { py[i] = 0.06; pvy[i] *= -0.3; pvx[i] *= 0.6; pvz[i] *= 0.6; }
+    const s = Math.min(1, plife[i] * 3);
+    _m.makeScale(s, s, s); _m.setPosition(px[i], py[i], pz[i]);
+    pMesh.setMatrixAt(c, _m); pMesh.setColorAt(c, pcol[i]);
+    c++;
+  }
+  pMesh.count = c;
+  pMesh.instanceMatrix.needsUpdate = true;
+  if (pMesh.instanceColor) pMesh.instanceColor.needsUpdate = true;
+  for (let k = flashes.length - 1; k >= 0; k--) {
+    const f = flashes[k]; f.t += dt;
+    f.mesh.material.opacity = 0.85 * (1 - f.t / f.dur);
+    if (f.t >= f.dur) { scene.remove(f.mesh); f.mesh.material.dispose(); flashes.splice(k, 1); }
+  }
+}
+
+// ---------------------------------------------------------------- audio (tiny synth)
+let ac = null, master = null, muted = false;
+function initAudio() {
+  try {
+    if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.55; master.connect(ac.destination); }
+    if (ac.state === 'suspended') ac.resume();
+  } catch (e) { ac = null; }
+}
+function tone(f, dur, type, vol, slide = 0, delay = 0) {
+  if (!ac || muted) return;
+  const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.linearRampToValueAtTime(Math.max(20, f + slide), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+let noiseBuf = null;
+function noise(dur, vol, freq) {
+  if (!ac || muted) return;
+  if (!noiseBuf) { noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.6, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rand() * 2 - 1; }
+  const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + dur);
+}
+const lastSfx = {};
+function sfx(name) {
+  if (!ac || muted) return;
+  const now = performance.now();
+  const gap = { die: 45, bite: 60, boom: 80 }[name] || 0;
+  if (gap && now - (lastSfx[name] || 0) < gap) return;
+  lastSfx[name] = now;
+  switch (name) {
+    case 'bite': tone(180 + rand() * 160, 0.05, 'square', 0.025); break;
+    case 'die': tone(650 + rand() * 400, 0.09, 'triangle', 0.035, -450); break;
+    case 'boom': noise(0.3, 0.25, 700); tone(90, 0.25, 'sine', 0.2, -50); break;
+    case 'tele': tone(150, 0.12, 'sine', 0.08, 40); break;
+    case 'swing': noise(0.2, 0.18, 2600); break;
+    case 'slam': noise(0.45, 0.4, 420); tone(70, 0.4, 'sine', 0.35, -40); break;
+    case 'lance': tone(1100, 0.35, 'sawtooth', 0.05, -800); noise(0.25, 0.12, 4000); break;
+    case 'scatter': tone(320, 0.16, 'triangle', 0.07, 520); break;
+    case 'horn': tone(196, 0.5, 'sawtooth', 0.04); tone(294, 0.6, 'sawtooth', 0.035, 0, 0.15); break;
+    case 'win': [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'square', 0.05, 0, i * 0.09)); break;
+    case 'pick': tone(660, 0.1, 'square', 0.05); tone(990, 0.12, 'square', 0.04, 0, 0.06); break;
+    case 'lose': [392, 330, 262, 196].forEach((f, i) => tone(f, 0.25, 'triangle', 0.06, 0, i * 0.15)); break;
+  }
+}
+$('mute').onclick = (e) => { e.stopPropagation(); muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; initAudio(); };
+
+// ---------------------------------------------------------------- run state, upgrades
+const S = {};
+const UPGRADES = [
+  { id: 'brood', ic: '🥚', nm: 'Brood Surge', ds: '+50 goblins right now', apply() { for (let k = 0; k < 50; k++) spawnGoblin(NEST.x, NEST.z); } },
+  { id: 'nest', ic: '🕳️', nm: 'Deep Nest', ds: '+30 eggs each fight and 30% faster hatching', apply() { S.eggBonus += 30; S.hatchRate *= 0.7; } },
+  { id: 'teeth', ic: '🦷', nm: 'Sharp Teeth', ds: '+35% bite damage', apply() { S.bite *= 1.35; } },
+  { id: 'feet', ic: '💨', nm: 'Quick Feet', ds: '+18% swarm speed', apply() { S.speed *= 1.18; } },
+  { id: 'bomb', ic: '💥', nm: 'Boom Goblins', ds: '+15% of new goblins explode on death, blasting the hero', apply() { S.bomberPct += 0.15; } },
+  { id: 'brute', ic: '🪨', nm: 'Brutes', ds: '+12% of new goblins are brutes: 3 HP, double bite', apply() { S.brutePct += 0.12; } },
+  { id: 'frenzy', ic: '🩸', nm: 'Pack Frenzy', ds: 'Every goblin biting adds +2% damage to all bites', apply() { S.frenzy += 0.02; } },
+  { id: 'nimble', ic: '🌀', nm: 'Nimble', ds: 'Scatter recharges 40% faster and makes goblins untouchable while scattering', apply() { S.scatterCd *= 0.6; S.nimble = true; } },
+  { id: 'feast', ic: '🍖', nm: 'Feast', ds: 'Biting the hero hatches new goblins on the spot', apply() { S.feast += 1; } },
+  { id: 'warren', ic: '🏰', nm: 'Bigger Warren', ds: 'Swarm cap +80 and +20 goblins', apply() { S.cap = Math.min(MAXG, S.cap + 80); for (let k = 0; k < 20; k++) spawnGoblin(NEST.x, NEST.z); } },
+];
+
+function resetRun() {
+  Object.assign(S, {
+    lvl: 1, slain: 0, bite: 4.5, speed: 6.6, cap: 260, eggBonus: 0, hatchRate: 0.42, bomberPct: 0, brutePct: 0, frenzy: 0,
+    nimble: false, scatterCd: 3, scatterT: 0, feast: 0, feastAcc: 0, eggs: 0, hatchT: 0, shake: 0, mode: 'fight',
+    obs: { slam: 0, spin: 0, lance: 0 }, dmg: 0, lost: 0, cx: 0, cz: 8, cvx: 0, cvz: 0, biting: 0, nearN: 0, nearX: 0, nearZ: 0,
+    blobFrac: 0, biteSfxT: 0, toastT: 0, overT: 0,
+  });
+  galive.fill(0); aliveCount = 0;
+  H.known = [];
+  for (let k = 0; k < 90; k++) spawnGoblin(NEST.x + (rand() - 0.5) * 4, NEST.z - 2 - rand() * 3);
+  target.x = 0; target.z = 6;
+  startFight(1);
+}
+function startFight(lvl) {
+  S.lvl = lvl;
+  S.eggs = 40 + S.eggBonus;
+  S.mode = 'fight';
+  S.scatterT = 0;
+  spawnHero(lvl);
+  showHud(true);
+}
+function openUpgrade() {
+  S.mode = 'upgrade';
+  heroG.visible = heroShadow.visible = false;
+  H.state = 'none';
+  for (let k = 0; k < 20; k++) spawnGoblin(NEST.x, NEST.z); // bounty
+  const pool = UPGRADES.slice();
+  const picks = [];
+  while (picks.length < 3) picks.push(pool.splice((rand() * pool.length) | 0, 1)[0]);
+  const box = $('cards'); box.innerHTML = '';
+  for (const u of picks) {
+    const b = document.createElement('button');
+    b.className = 'card';
+    b.innerHTML = `<div class="ic">${u.ic}</div><div class="nm">${u.nm}</div><div class="ds">${u.ds}</div>`;
+    b.onclick = (e) => { e.stopPropagation(); u.apply(); sfx('pick'); $('upgrade').classList.remove('show'); startFight(S.lvl + 1); };
+    box.appendChild(b);
+  }
+  $('upgrade').classList.add('show');
+  if (DEMO) setTimeout(() => box.firstChild && box.firstChild.click(), 300);
+}
+function gameOver() {
+  S.mode = 'over';
+  H.state = 'none';
+  disposeTele();
+  heroG.visible = heroShadow.visible = false;
+  showHud(false);
+  sfx('lose');
+  let best = 0;
+  try { best = Math.max(S.slain, +localStorage.getItem('goblinTideBest') || 0); localStorage.setItem('goblinTideBest', best); } catch (e) { best = S.slain; }
+  $('oSlain').textContent = S.slain;
+  $('oBest').textContent = `Best: ${best} · reached ${H.name}`;
+  $('over').classList.add('show');
+}
+function showHud(on) {
+  for (const id of ['boss', 'swarm', 'scatter']) $(id).style.display = on ? 'block' : 'none';
+}
+function toast(big, small, dur) {
+  const t = $('toast');
+  t.querySelector('.big').textContent = big;
+  t.querySelector('.small').textContent = small || '';
+  t.style.opacity = 1;
+  S.toastT = dur;
+}
+try { const b = +localStorage.getItem('goblinTideBest') || 0; if (b) $('best').textContent = `Best: ${b} heroes slain`; } catch (e) {}
+
+$('play').onclick = (e) => { e.stopPropagation(); initAudio(); $('title').classList.remove('show'); resetRun(); };
+$('again').onclick = (e) => { e.stopPropagation(); initAudio(); $('over').classList.remove('show'); resetRun(); };
+$('share').onclick = (e) => {
+  e.stopPropagation();
+  const text = `My goblin horde slew ${S.slain} hero${S.slain === 1 ? '' : 'es'} in Goblin Tide. The hero learns how you fight. Can your swarm beat that?`;
+  window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(location.origin + location.pathname)}`, '_blank', 'noopener');
+};
+
+// ---------------------------------------------------------------- input: point / drag to steer, click / tap / space to scatter
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
+function setTarget(cx, cy) {
+  ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  if (!ray.ray.intersectPlane(plane, hit)) return;
+  const r = Math.hypot(hit.x, hit.z);
+  const k = r > AR - 0.3 ? (AR - 0.3) / r : 1;
+  target.x = hit.x * k; target.z = hit.z * k;
+}
+const cvs = renderer.domElement;
+let touchDown = null;
+cvs.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || touchDown) setTarget(e.clientX, e.clientY); });
+cvs.addEventListener('pointerdown', (e) => {
+  initAudio();
+  setTarget(e.clientX, e.clientY);
+  if (e.pointerType === 'mouse') { if (e.button === 0) scatter(); }
+  else touchDown = { x: e.clientX, y: e.clientY, t: performance.now() };
+});
+const endTouch = () => { touchDown = null; };
+cvs.addEventListener('pointerup', endTouch);
+cvs.addEventListener('pointercancel', endTouch);
+cvs.addEventListener('contextmenu', (e) => e.preventDefault());
+$('scatter').addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); initAudio(); scatter(); });
+addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); scatter(); } if (e.code === 'KeyM') $('mute').click(); });
+
+// ---------------------------------------------------------------- demo autopilot (used for preview screenshots)
+function demoPilot(time) {
+  if (S.mode !== 'fight') return;
+  const a = time * 0.7;
+  const rr = H.state === 'move' ? 1.2 : 6;
+  target.x = H.x + Math.cos(a) * rr; target.z = H.z + Math.sin(a) * rr;
+  if (tele && S.scatterT <= 0 && inAttack(H.atk, S.cx, S.cz)) scatter();
+}
+
+// ---------------------------------------------------------------- main loop
+const clock = new THREE.Clock();
+let fpsAcc = 0, fpsN = 0, lastHud = '';
+const SIM = +new URLSearchParams(location.search).get('sim') || 0; // test harness: N sim steps per frame
+let simTime = 0;
+let simFrames = 0;
+function frame() {
+  if (SIM) setTimeout(frame, 0); else requestAnimationFrame(frame);
+  const realDt = Math.min(clock.getDelta(), 1 / 30);
+  const steps = SIM || 1;
+  for (let s = 0; s < steps; s++) {
+    const dt = SIM ? 1 / 60 : realDt;
+    simTime += dt;
+    tick(dt, simTime);
+  }
+  if (!SIM || ++simFrames % 50 === 0) draw(realDt);
+}
+function tick(dt, time) {
+  if (S.mode === 'fight' || S.mode === 'upgrade' || S.mode === 'over') {
+    if (DEMO) demoPilot(time);
+    if (S.mode === 'fight') {
+      S.scatterT = Math.max(0, S.scatterT - dt);
+      // hatch eggs
+      S.hatchT -= dt;
+      if (S.eggs > 0 && S.hatchT <= 0 && aliveCount < S.cap) {
+        if (spawnGoblin(NEST.x, NEST.z) >= 0) S.eggs--;
+        S.hatchT = S.hatchRate;
+      }
+      if (aliveCount === 0 && S.eggs === 0 && H.state !== 'dead') {
+        S.overT += dt;
+        if (S.overT > 0.8) gameOver();
+      } else S.overT = 0;
+    }
+    updateHero(dt);
+    updateSwarm(dt, time);
+  } else {
+    // title screen: idle swarm wandering
+    if (!S.mode) { S.mode = 'title'; }
+  }
+  updateParticles(dt);
+
+  // hero transform + hit flash
+  if (heroG.visible) {
+    heroG.position.x = H.x; heroG.position.z = H.z;
+    if (H.state !== 'tele' && H.state !== 'recover' && H.state !== 'dead') heroG.rotation.y = H.face;
+    else if (H.state === 'tele' && H.atk !== 'spin') heroG.rotation.y = H.face;
+    heroShadow.position.set(H.x, 0.02, H.z);
+    if (S.biting > 4 && H.state === 'move') { heroG.position.x += (rand() - 0.5) * 0.08; heroG.position.z += (rand() - 0.5) * 0.08; }
+    H.flash = Math.max(0, H.flash - dt * 5);
+    for (const m of heroMats) m.emissive.setScalar(H.flash * 0.6);
+  }
+  rally.position.x = target.x; rally.position.z = target.z;
+  rally.scale.setScalar(1 + Math.sin(time * 6) * 0.12);
+  rally.visible = S.mode === 'fight';
+
+  // camera + shake
+  S.shake = Math.max(0, (S.shake || 0) - dt * 1.8);
+  const sh = (S.shake || 0) * 0.6;
+  camera.position.set(camBase.x + (rand() - 0.5) * sh, camBase.y + (rand() - 0.5) * sh, camBase.z + (rand() - 0.5) * sh);
+  camera.lookAt(0, 0, -0.3);
+}
+function draw(dt) {
+  // HUD
+  if (S.mode === 'fight') {
+    $('bossFill').style.width = `${Math.max(0, (H.hp / H.maxHp) * 100)}%`;
+    const hud = `${aliveCount}|${S.eggs}`;
+    if (hud !== lastHud) { lastHud = hud; $('gcount').textContent = aliveCount; $('eggs').textContent = S.eggs > 0 ? `${S.eggs} eggs hatching` : 'no eggs left'; }
+    const p = 1 - S.scatterT / S.scatterCd;
+    const btn = $('scatter');
+    btn.style.setProperty('--p', p.toFixed(3));
+    btn.classList.toggle('ready', p >= 1);
+  }
+  if (S.toastT > 0) { S.toastT -= dt; if (S.toastT <= 0) $('toast').style.opacity = 0; }
+
+  renderer.render(scene, camera);
+
+  // auto quality for weak machines
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc > 2) {
+    const avg = fpsAcc / fpsN;
+    if (avg > 1 / 45 && quality > 0.55) { quality = Math.max(0.55, quality - 0.2); renderer.setPixelRatio(quality); resize(); }
+    fpsAcc = 0; fpsN = 0;
+  }
+}
+
+window.__game = { S, H, get alive() { return aliveCount; } };
+if (DEMO) setInterval(() => { document.title = JSON.stringify({ t: simTime.toFixed(1), slain: S.slain, scat: S.scatterCd, mode: S.mode, lvl: S.lvl, hp: Math.round(H.hp), alive: aliveCount, eggs: S.eggs, known: H.known, obs: S.obs }); }, 500);
+if (DEMO) { $('title').classList.remove('show'); resetRun(); }
+const WARP = +new URLSearchParams(location.search).get('warp') || 0; // demo: pre-simulate N seconds (for preview shots)
+if (DEMO && WARP) { for (let k = 0; k < WARP * 60; k++) { simTime += 1 / 60; tick(1 / 60, simTime); } S.toastT = 0; $('toast').style.opacity = 0; }
+frame();
+</script>
+</body>
+</html>
